@@ -24,7 +24,7 @@ var aptVuln = prometheus.NewGaugeVec(
 		Name: "trivy_apt_vulnerability",
 		Help: "Current number of vulnerability for a package",
 	},
-	[]string{"id", "package", "url", "severity", "InstalledVersion"},
+	[]string{"id", "package", "url", "severity", "InstalledVersion", "hostname"},
 )
 
 func handler(w http.ResponseWriter, r *http.Request) {
@@ -36,13 +36,14 @@ func handler(w http.ResponseWriter, r *http.Request) {
 
 func parse_file(file string) {
 	data, _ := os.ReadFile(file)
+	hostname, _ := os.Hostname()
 	_, _ = jsonparser.ArrayEach(data, func(value []byte, dataType jsonparser.ValueType, offset int, err error) {
 		n, _ := jsonparser.GetString(value, "VulnerabilityID")
 		pkg, _ := jsonparser.GetString(value, "PkgName")
 		url, _ := jsonparser.GetString(value, "PrimaryURL")
 		severity, _ := jsonparser.GetString(value, "Severity")
 		v, _ := jsonparser.GetString(value, "InstalledVersion")
-		aptVuln.WithLabelValues(n, pkg, url, severity, v).Set(1)
+		aptVuln.WithLabelValues(n, pkg, url, severity, v, hostname).Set(1)
 	}, "Results", "[0]", "Vulnerabilities")
 
 }
