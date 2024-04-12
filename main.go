@@ -25,7 +25,7 @@ var aptVuln = prometheus.NewGaugeVec(
 		Name: "trivy_apt_vulnerability",
 		Help: "Current number of vulnerability for a package",
 	},
-	[]string{"id", "package", "url", "severity", "InstalledVersion", "hostname"},
+	[]string{"id", "package", "url", "severity", "installedversion", "hostname", "cvss_v2score", "cvss_v3score"},
 )
 
 func handler(w http.ResponseWriter, r *http.Request) {
@@ -40,14 +40,23 @@ func parse_file(file string) {
 	hostname, _ := os.Hostname()
 	split_host := strings.Split(hostname, ".")
 	_, _ = jsonparser.ArrayEach(data, func(value []byte, dataType jsonparser.ValueType, offset int, err error) {
-		n, _ := jsonparser.GetString(value, "VulnerabilityID")
+		id, _ := jsonparser.GetString(value, "VulnerabilityID")
 		pkg, _ := jsonparser.GetString(value, "PkgName")
 		url, _ := jsonparser.GetString(value, "PrimaryURL")
 		severity, _ := jsonparser.GetString(value, "Severity")
-		v, _ := jsonparser.GetString(value, "InstalledVersion")
-		aptVuln.WithLabelValues(n, pkg, url, severity, v, split_host[0]).Set(1)
+		installed_version, _ := jsonparser.GetString(value, "InstalledVersion")
+		v3score, _ := jsonparser.GetFloat(value, "CVSS", "nvd", "V3Score")
+		v2score, _ := jsonparser.GetFloat(value, "CVSS", "nvd", "V2Score")
+		s_v2score := fmt.Sprintf("%g", v2score)
+		s_v3score := fmt.Sprintf("%g", v3score)
+		if s_v3score == "0" {
+			s_v3score = ""
+		}
+		if s_v2score == "0" {
+			s_v2score = ""
+		}
+		aptVuln.WithLabelValues(id, pkg, url, severity, installed_version, split_host[0], s_v2score, s_v3score).Set(1)
 	}, "Results", "[0]", "Vulnerabilities")
-
 }
 
 func reloadHandler(w http.ResponseWriter, r *http.Request) {
